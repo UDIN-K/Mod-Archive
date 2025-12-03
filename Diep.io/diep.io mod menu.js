@@ -41,7 +41,7 @@
 //1.0.0 : Initial release
 //2.0.0 : Added menu system
 //3.0.0 : Added all features - Auto Fire, Auto Spin, Zoom, etc.
-//3.1.0 : Prioritas target ancaman terdekat, Zoom Hack diperbaiki, 
+//3.1.0 : Threat Priority Mode, Zoom Hack fixed, Draggable toggle button,
 //        Threat Indicator, Smooth Aim, Better Prediction, Drone/Crasher detection
 
 (() => {
@@ -1829,7 +1829,7 @@
         const CONFIG = {
             // Combat
             aimbot: true,
-            priority: 'survival', // 'survival', 'player', 'farm', 'distance'
+            priority: 'threat', // 'threat', 'player', 'farm', 'distance'
             fov: 500,
             predictionAim: true,
             predictionStrength: 1.0,
@@ -2048,7 +2048,7 @@
                         <div class="row"><span class="label">Prediction Aim</span><div class="ios-switch" id="chk-predictionAim"></div></div>
                         <div class="row"><span class="label">Triggerbot</span><div class="ios-switch" id="chk-triggerbot"></div></div>
                         <div class="row"><span class="label">Auto Fire</span><div class="ios-switch" id="chk-autoFire"></div></div>
-                        <div class="row"><span class="label">Priority</span><select id="sel-priority"><option value="survival">Survival (Prioritas Ancaman)</option><option value="player">Player Only</option><option value="farm">Farm Only</option><option value="distance">Terdekat</option></select></div>
+                        <div class="row"><span class="label">Priority</span><select id="sel-priority"><option value="threat">Threat Priority</option><option value="player">Player Only</option><option value="farm">Farm Only</option><option value="distance">Nearest</option></select></div>
                         <div class="row"><span class="label">FOV Radius</span><input type="range" id="rng-fov" min="100" max="2000"></div>
                     </div>
                 </div>
@@ -2458,14 +2458,14 @@
                     }
                 }
 
-                // Aimbot target selection - SURVIVAL PRIORITY SYSTEM
+                // Aimbot target selection - THREAT PRIORITY SYSTEM
                 const fovRadius = CONFIG.fov * scaling.scalingFactor;
                 if (dist > fovRadius) continue;
                 
                 let score = dist; // Base score = distance
                 
-                // SURVIVAL MODE - Prioritaskan ancaman terdekat!
-                if (CONFIG.priority === 'survival') {
+                // THREAT MODE - Prioritize nearby threats!
+                if (CONFIG.priority === 'threat') {
                     if (isThreat) {
                         // ANCAMAN! Prioritas tertinggi - semakin dekat semakin prioritas
                         score = arenaDist - 100000; // Nilai sangat rendah = prioritas tinggi
@@ -2474,9 +2474,9 @@
                     } else if (isCrasher) {
                         score = arenaDist - 30000;
                     } else if (isPentagon) {
-                        score = arenaDist + 10000; // Pentagon prioritas rendah di survival mode
+                        score = arenaDist + 10000; // Pentagon low priority in threat mode
                     } else {
-                        continue; // Skip farm shapes di survival mode
+                        continue; // Skip farm shapes in threat mode
                     }
                 } else if (CONFIG.priority === 'player') {
                     if (!isEnemy && !isDrone) continue;
@@ -2497,7 +2497,7 @@
             }
             
             // Draw threat radius circle
-            if (CONFIG.showThreatIndicator && CONFIG.priority === 'survival') {
+            if (CONFIG.showThreatIndicator && CONFIG.priority === 'threat') {
                 ctx.beginPath();
                 ctx.strokeStyle = 'rgba(255, 0, 0, 0.2)';
                 ctx.lineWidth = 2;
@@ -2601,7 +2601,7 @@
         console.log('╔═══════════════════════════════════════╗');
         console.log('║       UDINK MOD v3.1.0 LOADED!        ║');
         console.log('║    Press V to open the menu           ║');
-        console.log('║    Survival Mode: Prioritize threats! ║');
+        console.log('║    Threat Mode: Prioritize enemies!  ║');
         console.log('║    © 2024 Udink - All Rights Reserved ║');
         console.log('╚═══════════════════════════════════════╝');
     })();
