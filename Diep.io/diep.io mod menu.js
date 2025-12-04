@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Udink Mod - Diep.io Ultimate Cheat
 // @description  Ultimate Diep.io Mod by Udink - Aimbot, ESP, Auto Fire, Auto Spin, Zoom Hack & More!
-// @version      3.3.4
+// @version      3.3.7
 // @author       Udink
 // @license      MIT
 // @match        https://diep.io/*
@@ -47,6 +47,7 @@
 //3.3.0 : Build Upgrader integrated - Save custom builds, quick spawn with stats
 //3.3.1 : UI Polish - Modern glassmorphism design, better animations, improved UX
 //3.3.4 : Bug fixes and performance improvements
+//3.3.7 : Updated MISC
 
 // ==================== ANTI-ANTI-CHEAT BYPASS ====================
 // This must run FIRST before anything else to disable Diep.io's anti-cheat
@@ -1900,7 +1901,7 @@ Object.freeze = new Proxy(Object.freeze, {
           const CONFIG = {
               // Combat
               aimbot: true,
-              priority: 'threat', // 'threat', 'player', 'farm', 'distance'
+              priority: 'all', // 'all', 'threat', 'player', 'farm', 'distance'
               fov: 500,
               predictionAim: true,
               predictionStrength: 1.0,
@@ -1929,6 +1930,12 @@ Object.freeze = new Proxy(Object.freeze, {
               autoRespawn: false,
               zoomHack: false,
               zoomLevel: 0.5,
+              
+              // Developer Options
+              debugCollisions: false,
+              nativeFps: false,
+              rawHealth: false,
+              hideUi: false,
               
               // Colors
               cEnemy: '#ff3b30',
@@ -2626,7 +2633,7 @@ Object.freeze = new Proxy(Object.freeze, {
                           <div class="row"><span class="label">Auto Fire</span><div class="ios-switch" id="chk-autoFire"></div></div>
                       </div>
                       <div class="card">
-                          <div class="row"><span class="label">Target Priority</span><select id="sel-priority"><option value="threat">🎯 Threat First</option><option value="player">👤 Players Only</option><option value="farm">🔷 Farm Only</option><option value="distance">📏 Nearest</option></select></div>
+                          <div class="row"><span class="label">Target Priority</span><select id="sel-priority"><option value="all">🌐 All (Player Priority)</option><option value="threat">🎯 Threat First</option><option value="player">👤 Players Only</option><option value="farm">🔷 Farm Only</option><option value="distance">📏 Nearest</option></select></div>
                           <div class="row"><span class="label">FOV Radius</span><input type="range" id="rng-fov" min="100" max="2000"></div>
                       </div>
                   </div>
@@ -2677,6 +2684,13 @@ Object.freeze = new Proxy(Object.freeze, {
                           <div class="row"><span class="label">Threat Radius</span><input type="range" id="rng-threatRadius" min="100" max="800"></div>
                           <div class="row"><span class="label">Prediction Strength</span><input type="range" id="rng-predictionStrength" min="0.1" max="2" step="0.1"></div>
                       </div>
+                      <div class="header">🔧 Developer Options</div>
+                      <div class="card">
+                          <div class="row"><span class="label">Show Collisions</span><div class="ios-switch" id="chk-debugCollisions"></div></div>
+                          <div class="row"><span class="label">Show FPS (Native)</span><div class="ios-switch" id="chk-nativeFps"></div></div>
+                          <div class="row"><span class="label">Show Health Values</span><div class="ios-switch" id="chk-rawHealth"></div></div>
+                          <div class="row"><span class="label">Hide Game UI</span><div class="ios-switch" id="chk-hideUi"></div></div>
+                      </div>
                   </div>
                   <div id="tab-colors" class="tab-page">
                       <div class="header">Color Settings</div>
@@ -2703,7 +2717,7 @@ Object.freeze = new Proxy(Object.freeze, {
                       <div class="header">ℹ️ About</div>
                       <div class="card">
                           <div class="row"><span class="label">Mod Name</span><span class="info-badge badge-blue">⚡ Udink Mod</span></div>
-                          <div class="row"><span class="label">Version</span><span class="info-badge badge-green">v3.3.1</span></div>
+                          <div class="row"><span class="label">Version</span><span class="info-badge badge-green">v3.3.7</span></div>
                           <div class="row"><span class="label">Developer</span><span class="info-badge badge-orange">Udink</span></div>
                           <div class="row"><span class="label">Status</span><span class="info-badge badge-green">✓ Active</span></div>
                       </div>
@@ -2901,6 +2915,20 @@ Object.freeze = new Proxy(Object.freeze, {
           bindCheck('chk-autoSpin', 'autoSpin');
           bindCheck('chk-autoRespawn', 'autoRespawn');
           bindCheck('chk-zoomHack', 'zoomHack', () => applyZoom());
+          
+          // Dev Options - with execute commands
+          bindCheck('chk-debugCollisions', 'debugCollisions', (v) => {
+              if (_window.input?.execute) _window.input.execute('ren_debug_collisions ' + v);
+          });
+          bindCheck('chk-nativeFps', 'nativeFps', (v) => {
+              if (_window.input?.execute) _window.input.execute('ren_fps ' + v);
+          });
+          bindCheck('chk-rawHealth', 'rawHealth', (v) => {
+              if (_window.input?.execute) _window.input.execute('ren_raw_health_values ' + v);
+          });
+          bindCheck('chk-hideUi', 'hideUi', (v) => {
+              if (_window.input?.execute) _window.input.execute('ren_ui ' + !v);
+          });
           
           bindVal('sel-priority', 'priority');
           bindVal('rng-fov', 'fov');
@@ -3192,20 +3220,36 @@ Object.freeze = new Proxy(Object.freeze, {
                   // Deteksi enemy berdasarkan type dan warna
                   const color = e.extras.color || '';
                   const teamColors = ['#00b2e1', '#f14e54', '#bf7ff5', '#00e16e'];
+                  const farmColors = ['#ffe869', '#fc7677', '#768dfc']; // Square, Triangle, Pentagon
                   const isTeamColor = teamColors.includes(color);
+                  const isFarmColor = farmColors.includes(color);
+                  
+                  // IMPROVED PLAYER DETECTION:
+                  // 1. Type 0 (Player) dengan team color
+                  // 2. Type 9 (UNKNOWN) dengan team color dan radius besar (>40) = kemungkinan player
+                  // 3. Entity dengan team color, bukan farm color, radius > 40
+                  const isLikelyPlayer = (e.type === 0 && isTeamColor) || 
+                                         (e.type === 9 && isTeamColor && r > 40 && !isFarmColor) ||
+                                         (isTeamColor && !isFarmColor && r > 45);
                   
                   // Dalam team mode, musuh punya warna BERBEDA dari kita
-                  // Dalam FFA, semua player dengan team color adalah musuh
+                  // Dalam FFA (myColor null), semua player dengan team color adalah musuh
                   const isSameTeam = myColor && color === myColor;
-                  const isEnemyPlayer = (e.type === 0 && isTeamColor && !isSameTeam);
+                  
+                  // Enemy = likely player yang bukan tim sendiri
+                  const isEnemyPlayer = isLikelyPlayer && !isSameTeam;
                   
                   // Drone detection - drone musuh punya warna berbeda dari kita
-                  const isEnemyDrone = (e.type === 2 && isTeamColor && !isSameTeam);
+                  // Drone biasanya type 2 dengan team color dan radius kecil (23-46)
+                  const isEnemyDrone = (e.type === 2 && isTeamColor && !isSameTeam) ||
+                                       (e.type === 9 && isTeamColor && r >= 23 && r <= 46 && !isSameTeam);
                   
-                  const isPentagon = (e.type === 6 || e.type === 7);
-                  const isSquare = (e.type === 4);
-                  const isTriangle = (e.type === 5);
-                  const isCrasher = (e.type === 8);
+                  // Farm shapes - berdasarkan warna DAN type
+                  const isPentagon = (e.type === 6 || e.type === 7) || (color === '#768dfc' && r >= 70);
+                  const isSquare = (e.type === 4) || (color === '#ffe869' && r >= 50 && r <= 60);
+                  const isTriangle = (e.type === 5) || (color === '#fc7677' && r >= 50 && r <= 60);
+                  const isCrasher = (e.type === 8) || (color === '#f177dd');
+                  const isFarmShape = isPentagon || isSquare || isTriangle;
                   
                   // Combined enemy check
                   const isEnemy = isEnemyPlayer;
@@ -3290,14 +3334,39 @@ Object.freeze = new Proxy(Object.freeze, {
                       }
                   }
 
-                  // Aimbot target selection - THREAT PRIORITY SYSTEM
+                  // Aimbot target selection - PRIORITY SYSTEM
                   const fovRadius = CONFIG.fov * scaling.scalingFactor;
                   if (dist > fovRadius) continue;
                   
                   let score = dist; // Base score = distance
                   
+                  // ALL MODE - Target semua, tapi PRIORITAS PLAYER!
+                  if (CONFIG.priority === 'all') {
+                      if (isThreat) {
+                          // Threat = prioritas tertinggi
+                          score = arenaDist - 100000;
+                      } else if (isEnemy) {
+                          // Enemy player = prioritas tinggi
+                          score = arenaDist - 80000;
+                      } else if (isDrone) {
+                          // Enemy drone
+                          score = arenaDist - 60000;
+                      } else if (isCrasher) {
+                          // Crasher
+                          score = arenaDist - 40000;
+                      } else if (isPentagon) {
+                          // Pentagon = prioritas rendah tapi tetap target
+                          score = arenaDist - 10000;
+                      } else if (isTriangle) {
+                          score = arenaDist - 5000;
+                      } else if (isSquare) {
+                          score = arenaDist;
+                      } else {
+                          continue; // Skip unknown
+                      }
+                  }
                   // THREAT MODE - Prioritize nearby threats!
-                  if (CONFIG.priority === 'threat') {
+                  else if (CONFIG.priority === 'threat') {
                       if (isThreat) {
                           // ANCAMAN! Prioritas tertinggi - semakin dekat semakin prioritas
                           score = arenaDist - 100000; // Nilai sangat rendah = prioritas tinggi
@@ -3318,7 +3387,7 @@ Object.freeze = new Proxy(Object.freeze, {
                       if (isPentagon) score -= 5000;
                       else if (isTriangle) score -= 2000;
                   } else {
-                      // Distance mode
+                      // Distance mode - pure nearest
                       score = dist;
                   }
                   
@@ -3341,10 +3410,15 @@ Object.freeze = new Proxy(Object.freeze, {
               // Log entity count setiap 60 frame (sekitar 1 detik)
               if (frameCount % 60 === 0) {
                   const playerCount = entities.filter(e => e.type === 0).length;
+                  const unknownWithTeamColor = entities.filter(e => {
+                      const c = e.extras?.color || '';
+                      return e.type === 9 && ['#00b2e1', '#f14e54', '#bf7ff5', '#00e16e'].includes(c);
+                  }).length;
                   console.log('[Udink Mod] Entities:', entities.length, 
-                      '| Players:', playerCount,
+                      '| Type0(Player):', playerCount,
+                      '| Type9+TeamColor:', unknownWithTeamColor,
                       '| MyColor:', myColor || 'unknown',
-                      '| Target:', best ? `Type:${best.type} Color:${best.extras?.color}` : 'none');
+                      '| Target:', best ? `Type:${best.type} R:${best.extras?.radius} Color:${best.extras?.color}` : 'none');
               }
 
               // Aimbot - aim at best target with SMOOTH AIM
